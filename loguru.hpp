@@ -55,6 +55,7 @@ Website: www.ilikebigbits.com
 	* Version 1.8.0 - 2018-04-23 - Shorten long file names to keep preamble fixed width
 	* Version 1.9.0 - 2018-09-22 - Adjust terminal colors, add LOGURU_VERBOSE_SCOPE_ENDINGS, add LOGURU_SCOPE_TIME_PRECISION, add named log levels
 	* Version 2.0.0 - 2018-09-22 - Split loguru.hpp into loguru.hpp and loguru.cpp
+	* Version 2.0.1 - 2018-11-05 - modify for yolo log
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -907,8 +908,15 @@ namespace loguru
 	((verbosity) > loguru::current_verbosity_cutoff()) ? (void)0                                   \
 									  : loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
-// LOG_F(INFO, "Foo: %d", some_number);
+#define PRINT_LOG(verbosity_name, ...) VLOG_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
+
 #define LOG_F(verbosity_name, ...) VLOG_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
+
+#ifdef YOLO_D_MKDBG
+#define PRINT_TIME()               LOG_F(INFO, "Timestamp");
+#else
+#define PRINT_TIME()               (void)0
+#endif
 
 #define VLOG_IF_F(verbosity, cond, ...)                                                            \
 	((verbosity) > loguru::current_verbosity_cutoff() || (cond) == false)                          \

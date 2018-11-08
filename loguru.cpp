@@ -17,6 +17,7 @@
 #pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
 
 #include "loguru.hpp"
+#include <sys/time.h>
 
 #ifndef LOGURU_HAS_BEEN_IMPLEMENTED
 #define LOGURU_HAS_BEEN_IMPLEMENTED
@@ -25,7 +26,6 @@
 
 #undef min
 #undef max
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -158,8 +158,11 @@ namespace loguru
 	using StringPairList = std::vector<StringPair>;
 
 	const auto s_start_time = steady_clock::now();
-
+#ifdef YOLO_D_MKDBG
 	Verbosity g_stderr_verbosity  = Verbosity_0;
+#else
+	Verbosity g_stderr_verbosity  = Verbosity_ERROR;
+#endif
 	bool      g_colorlogtostderr  = true;
 	unsigned  g_flush_interval_ms = 0;
 	bool      g_preamble          = true;
@@ -957,7 +960,7 @@ namespace loguru
 				uint64_t thread_id = thread;
 			#endif
 			if (right_align_hext_id) {
-				snprintf(buffer, length, "%*X", static_cast<int>(length - 1), static_cast<unsigned>(thread_id));
+				snprintf(buffer, length, "%X", static_cast<unsigned>(thread_id));
 			} else {
 				snprintf(buffer, length, "%X", static_cast<unsigned>(thread_id));
 			}
@@ -1142,10 +1145,14 @@ namespace loguru
 		if (out_buff_size == 0) { return; }
 		out_buff[0] = '\0';
 		if (!g_preamble) { return; }
-		long long ms_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+		struct timeval stCurTime;
+		gettimeofday(&stCurTime, NULL);
+		long long ms_since_epoch = stCurTime.tv_sec*1000 + stCurTime.tv_usec/1000;
+		//long long ms_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 		time_t sec_since_epoch = time_t(ms_since_epoch / 1000);
 		tm time_info;
 		localtime_r(&sec_since_epoch, &time_info);
+
 
 		auto uptime_ms = duration_cast<milliseconds>(steady_clock::now() - s_start_time).count();
 		auto uptime_sec = uptime_ms / 1000.0;
@@ -1168,33 +1175,21 @@ namespace loguru
 		long pos = 0;
 
 		if (g_preamble_date && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "%04d-%02d-%02d ",
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "%04d.%02d.%02d ",
 				             1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday);
 		}
 		if (g_preamble_time && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "%02d:%02d:%02d.%03lld ",
-			               time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000);
-		}
-		if (g_preamble_uptime && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "(%8.3fs) ",
-			               uptime_sec);
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "%02d:%02d:%02d.%06d",
+			               time_info.tm_hour, time_info.tm_min, time_info.tm_sec, int(stCurTime.tv_usec));
 		}
 		if (g_preamble_thread && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%-*s]",
-			               LOGURU_THREADNAME_WIDTH, thread_name);
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%s]", thread_name);
 		}
 		if (g_preamble_file && pos < out_buff_size) {
-			char shortened_filename[LOGURU_FILENAME_WIDTH + 1];
-			snprintf(shortened_filename, LOGURU_FILENAME_WIDTH + 1, "%s", file);
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "%*s:%-5u ",
-			               LOGURU_FILENAME_WIDTH, shortened_filename, line);
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%s:%u]",file, line);
 		}
 		if (g_preamble_verbose && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "%4s",
-			               level_buff);
-		}
-		if (g_preamble_pipe && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "| ");
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%s]",  level_buff);
 		}
 	}
 
